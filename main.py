@@ -117,31 +117,43 @@ def webhook():
 
 
 # Solicitar la verificacion a DuckApps
+
 def verificar_webhook():
 
+    print("DIAGNOSTICO: Iniciando verificacion...", flush=True)
+
     if not TOKEN:
-        print("ERROR: Falta DUCKS_BOT_TOKEN")
+        print("ERROR: Falta DUCKS_BOT_TOKEN", flush=True)
         return
 
-    solicitud = urllib.request.Request(
-        API_URL + "/webhook/verify",
-        method="POST",
-        headers={
-            "Authorization": "Bot " + TOKEN
-        }
-    )
+    print("DIAGNOSTICO: Token encontrado.", flush=True)
 
     try:
+        solicitud = urllib.request.Request(
+            API_URL + "/webhook/verify",
+            method="POST",
+            headers={
+                "Authorization": "Bot " + TOKEN
+            }
+        )
+
+        print("DIAGNOSTICO: Enviando solicitud a DuckApps...", flush=True)
+
         with urllib.request.urlopen(solicitud, timeout=30) as respuesta:
-            print("Verificacion solicitada:", respuesta.status)
-            print(respuesta.read().decode("utf-8"))
+            print(
+                "Verificacion solicitada:",
+                respuesta.status,
+                flush=True
+            )
+            print(respuesta.read().decode("utf-8"), flush=True)
 
     except urllib.error.HTTPError as error:
-        print("Error de DuckApps:", error.code)
-        print(error.read().decode("utf-8"))
+        print("ERROR HTTP de DuckApps:", error.code, flush=True)
+        print(error.read().decode("utf-8"), flush=True)
 
     except Exception as error:
-        print("Error al verificar:", error)
+        print("ERROR al verificar:", repr(error), flush=True)
+        
 
 
 # Iniciar servidor
