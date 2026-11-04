@@ -118,6 +118,7 @@ def webhook():
 
 # Solicitar la verificacion a DuckApps
 
+
 def verificar_webhook():
 
     print("DIAGNOSTICO: Iniciando verificacion...", flush=True)
@@ -133,7 +134,9 @@ def verificar_webhook():
             API_URL + "/webhook/verify",
             method="POST",
             headers={
-                "Authorization": "Bot " + TOKEN
+                "Authorization": "Bot " + TOKEN,
+                "User-Agent": "UvitaBot/1.0",
+                "Accept": "application/json"
             }
         )
 
@@ -153,6 +156,7 @@ def verificar_webhook():
 
     except Exception as error:
         print("ERROR al verificar:", repr(error), flush=True)
+        
         
 
 
