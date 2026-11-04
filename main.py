@@ -1,24 +1,31 @@
 
 import os
+import json
 import time
 import random
-import json
+import threading
+import urllib.request
+import urllib.error
 
 from flask import Flask, request, jsonify
-from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from cryptography.exceptions import InvalidSignature
 
 app = Flask(__name__)
 
-# Clave publica oficial de DuckApps
-CLAVE_PUBLICA = Ed25519PublicKey.from_public_bytes(
+# Configuracion de DuckApps
+TOKEN = os.environ.get("DUCKS_BOT_TOKEN")
+
+API_URL = "https://bots.duckapps.com.br/bot/v1"
+
+PUBLIC_KEY = Ed25519PublicKey.from_public_bytes(
     bytes.fromhex(
-        "6c96e368eee0944b026356a7a2ede8fefb20e6f16f2b0ebf402e4b131060ce94"
+        "6c96e368eee0944b026356a7a2ede8e"
+        "fefb20e6f16f2b0ebf402e4b131060ce94"
     )
 )
 
-SALUDOS = ["hola", "ola", "oa", "hi"]
-
+# Respuestas aleatorias de Uvita
 RESPUESTAS = [
     "Hola mi bb ;3",
     "Buenas...nalgas",
@@ -30,29 +37,22 @@ RESPUESTAS = [
 ]
 
 
-def responder_saludo(mensaje):
-    mensaje = mensaje.lower().strip()
-
-    if mensaje in SALUDOS:
-        return random.choice(RESPUESTAS)
-
-    return None
-
-
+# Verificar la firma de DuckApps
 def verificar_firma(headers, cuerpo):
-    marca_tiempo = headers.get("X-Ducks-Timestamp")
+
+    timestamp = headers.get("X-Ducks-Timestamp")
     firma = headers.get("X-Ducks-Signature")
 
-    if not marca_tiempo or not firma:
+    if not timestamp or not firma:
         return False
 
     try:
-        if abs(time.time() - int(marca_tiempo)) > 300:
+        if abs(time.time() - int(timestamp)) > 300:
             return False
 
-        mensaje = marca_tiempo.encode() + b"." + cuerpo
+        mensaje = timestamp.encode() + b"." + cuerpo
 
-        CLAVE_PUBLICA.verify(
+        PUBLIC_KEY.verify(
             bytes.fromhex(firma),
             mensaje
         )
@@ -63,49 +63,96 @@ def verificar_firma(headers, cuerpo):
         return False
 
 
+# Pagina principal
 @app.route("/", methods=["GET"])
 def inicio():
     return "Uvita está funcionando."
 
 
+# Recibir eventos de DuckApps
 @app.route("/webhook", methods=["POST"])
 def webhook():
 
-    cuerpo = request.get_data()
+    cuerpo = request.get_data(cache=False)
 
     if not verificar_firma(request.headers, cuerpo):
-        return "", 401
+        return jsonify({"error": "Firma no valida"}), 401
 
     evento = json.loads(cuerpo.decode("utf-8"))
 
-    # Verificación de DuckApps
-    if evento["type"] == "ping":
+    tipo = evento.get("type")
+    datos = evento.get("data", {})
+
+    # Verificacion del webhook
+    if tipo == "ping":
         return jsonify({
-            "nonce": evento["data"]["nonce"]
-        })
+            "nonce": datos.get("nonce")
+        }), 200
 
-    # Cuando alguien escribe un comando
-    if evento["type"] == "command":
+    # Comandos del bot
+    if tipo == "command":
 
-        datos = evento["data"]
-        contenido = datos["content"]
+        contenido = datos.get("content", "").strip().lower()
 
         if contenido.startswith("/"):
             contenido = contenido[1:]
 
-        respuesta = responder_saludo(contenido)
+        comando = contenido.split()[0] if contenido else ""
 
-        if respuesta is not None:
+        if comando in ["hola", "ola", "oa", "hi"]:
+
+            respuesta = random.choice(RESPUESTAS)
+
             return jsonify({
                 "reply": {
                     "content": respuesta
                 }
-            })
+            }), 200
 
-    return jsonify({})
+    return jsonify({}), 200
 
 
+# Solicitar la verificacion a DuckApps
+def verificar_webhook():
+
+    if not TOKEN:
+        print("ERROR: Falta DUCKS_BOT_TOKEN")
+        return
+
+    solicitud = urllib.request.Request(
+        API_URL + "/webhook/verify",
+        method="POST",
+        headers={
+            "Authorization": "Bot " + TOKEN
+        }
+    )
+
+    try:
+        with urllib.request.urlopen(solicitud, timeout=30) as respuesta:
+            print("Verificacion solicitada:", respuesta.status)
+            print(respuesta.read().decode("utf-8"))
+
+    except urllib.error.HTTPError as error:
+        print("Error de DuckApps:", error.code)
+        print(error.read().decode("utf-8"))
+
+    except Exception as error:
+        print("Error al verificar:", error)
+
+
+# Iniciar servidor
 if __name__ == "__main__":
+
+    print("Iniciando Uvita...")
+
+    # Esperar a que el servidor este disponible
+    threading.Timer(10, verificar_webhook).start()
+
     puerto = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=puerto)
-      
+
+    app.run(
+        host="0.0.0.0",
+        port=puerto,
+        debug=False
+        )
+    
