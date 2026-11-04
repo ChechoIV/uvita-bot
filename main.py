@@ -18,12 +18,14 @@ TOKEN = os.environ.get("DUCKS_BOT_TOKEN")
 
 API_URL = "https://bots.duckapps.com.br/bot/v1"
 
+
 PUBLIC_KEY = Ed25519PublicKey.from_public_bytes(
     bytes.fromhex(
-        "6c96e368eee0944b026356a7a2ede8e"
-        "fefb20e6f16f2b0ebf402e4b131060ce94"
+        "6c96e368eee0944b026356a7a2ede8ef"
+        "efb20e6f16f2b0ebf402e4b131060ce94"
     )
 )
+
 
 # Respuestas aleatorias de Uvita
 RESPUESTAS = [
